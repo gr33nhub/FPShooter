@@ -2,9 +2,14 @@
 import pygame
 import random
 import math
-import logging
 
-from pygame.locals import K_ESCAPE, K_SPACE, KEYDOWN, QUIT
+
+from pygame.locals import K_ESCAPE, K_SPACE, K_RETURN, KEYDOWN, QUIT
+
+################################################################################
+PlayerNames=["Gonny", "Python", "Hans"]
+NumberTargets = 2 #Targets per player
+################################################################################
 
 BLACK = ( 0, 0, 0)
 GRAY = ( 100, 100, 100)
@@ -15,11 +20,7 @@ RED = ( 255, 0, 0)
 
 SIZE = (500, 500)
 
-pygame.font.init()
 
-font = pygame.font.Font(None, 36)
-
-screen = pygame.display.set_mode(SIZE)
 
 HARD_PUNISH = 500 #1000
 SOFT_PUNISH = 250
@@ -83,7 +84,13 @@ class Target():
 
 
     def update(self):
-        if self.target_new: # neues Ziel, etwas warten
+
+        pygame.draw.circle(screen, self.color, (self.x,self.y), int(self.radius), 0)
+        
+        current_radius = font.render("Radius: {:.0f}".format(self.radius), True, BLACK, WHITE)
+        screen.blit(current_radius, [10, SIZE[1]-45])
+        
+        if self.target_new: # new Target, wait some time
             if self.target_new_time > 0:
                 self.target_new_time -= 1
                 self.color = (self.target_new_time, 0, 0) #change color from red to black
@@ -102,16 +109,9 @@ class Target():
                     self.radius -= (self.radius / SHRINKING_SPEED)
                 else: # target too small
                     self.counter += 1
+                    hits.append(Bullet_Hole(self.x, self.y, RED, HARD_PUNISH))
                     self.new_target()
                     return HARD_PUNISH
-
-                
-        # draw target first
-        pygame.draw.circle(screen, self.color, (self.x,self.y), int(self.radius), 0)
-        
-        current_radius = font.render("Radius: {:.0f}".format(self.radius), True, BLACK, WHITE)
-        screen.blit(current_radius, [10, SIZE[1]-45])
-        
         return 0
 
 
@@ -155,14 +155,21 @@ class Bullet_Hole():
         self.score_position -= 0.5
 
 
+
+
+pygame.font.init()
+
+font = pygame.font.Font(None, 36)
+font_big = pygame.font.Font(None, 50)
+
+screen = pygame.display.set_mode(SIZE)
+
 hits=[]
 players = []
-#all_sprite_list = pygame.sprite.Group()
-#bullet_hole_list = pygame.sprite.Group()
 
-players.append(Player("a"))
-players.append(Player("b"))
-players.append(Player("c"))
+for name in PlayerNames:
+    players.append(Player(name))
+
         
 def main():
     pygame.init()
@@ -172,9 +179,12 @@ def main():
     current_player = 0
 
     running = True
+    game = True
     display_instructions = True
-    gameover = False
-    
+    highscore = True
+
+
+    ########################## Instructions ##########################
     while running and display_instructions and False:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -184,6 +194,7 @@ def main():
                     running = False
                 if event.key == K_SPACE:
                     display_instructions = False
+
                     
         instruction_text = font.render("Instructions", True, WHITE)
         screen.blit(instruction_text, [10, 10])
@@ -191,19 +202,50 @@ def main():
         clock.tick(20)
         pygame.display.flip()
 
-        
-    while running and not gameover:
-
+    # ########################## GAME ##########################
+    while running and game:
         screen.fill( WHITE )
-        pygame.draw.line(screen, GRAY, (int(SIZE[0]/2), 0), (int(SIZE[0]/2), int(SIZE[1])))
-        pygame.draw.line(screen, GRAY, (0, int(SIZE[1]/2)), (int(SIZE[0]), int(SIZE[1]/2)))
 
-        if players[current_player].target.counter >= 2:
+        if players[current_player].target.counter == 0:
+            next_player = font_big.render("Next Player: {}".format(players[current_player].name), True, BLACK)
+            next_player_space = font.render("press Enter", True, BLACK)
+            screen.blit(next_player, ( int(SIZE[0]/ 2 - next_player.get_width() /2), int(SIZE[1] / 2 - next_player.get_height() /2 )) )
+            screen.blit(next_player_space, ( int(SIZE[0]/ 2 - next_player_space.get_width() /2), int((SIZE[1] / 2 - next_player_space.get_height() /2) + 35 )) )
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+                if event.type == KEYDOWN:
+                    if event.key == K_ESCAPE:
+                        running = False
+                    if event.key == K_RETURN:
+                        if players[current_player].target.counter == 0:
+                            players[current_player].target.counter = 1
+
+
+        elif players[current_player].target.counter < (NumberTargets + 1):
+            pygame.draw.line(screen, GRAY, (int(SIZE[0]/2), 0), (int(SIZE[0]/2), int(SIZE[1]))) # Vertical and horizontal lines
+            pygame.draw.line(screen, GRAY, (0, int(SIZE[1]/2)), (int(SIZE[0]), int(SIZE[1]/2)))
+            players[current_player].update()
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+                if event.type == KEYDOWN:
+                    if event.key == K_ESCAPE:
+                        running = False
+                    if event.key == K_SPACE: # Random shot
+                        x = random.randint(SIZE[0]*0.2, SIZE[0]*0.8)
+                        y = random.randint(SIZE[0]*0.2, SIZE[0]*0.8)
+                        players[current_player].create_bullet_hole(x, y)
+                if event.type == pygame.MOUSEBUTTONUP:
+                    x, y = pygame.mouse.get_pos() # Mouse shot
+                    players[current_player].create_bullet_hole(x, y)
+
+        else:
             current_player += 1
             if current_player >= len(players):
-                running = False
-        else:
-            players[current_player].update()
+                game = False
 
         # then draw all hits
         for hit in hits:
@@ -213,30 +255,18 @@ def main():
                 hits.remove(hit)
 
 
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
-            if event.type == KEYDOWN:
-                if event.key == K_ESCAPE:
-                    running = False
-                if event.key == K_SPACE:
-                    x = random.randint(SIZE[0]*0.2, SIZE[0]*0.8)
-                    y = random.randint(SIZE[0]*0.2, SIZE[0]*0.8)
-                    players[current_player].create_bullet_hole(x, y)
-
-
         clock.tick(100)
         pygame.display.flip()
 
 
-        
-    while not gameover and False:
+    # ########################## HIGHSCORE ##########################
+    while running and highscore:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                gameover = True
+                highscore = False
             if event.type == KEYDOWN:
                 if event.key == K_ESCAPE:
-                    gameover = True
+                    highscore = False
                     
         screen.fill( GRAY )
 
