@@ -1,10 +1,9 @@
-
 import pygame
 import random
 import math
+from enum import Enum
 
-
-from pygame.locals import K_ESCAPE, K_SPACE, K_RETURN, KEYDOWN, QUIT
+from pygame.locals import K_ESCAPE, K_BACKSPACE, K_SPACE, K_RETURN, KEYDOWN, QUIT
 
 ################################################################################
 PlayerNames=["Gonny", "Python", "Hans"]
@@ -29,7 +28,7 @@ WAIT_AFTER_HIT_DURATION = 250
 WAIT_BEFORE_START_DURATION = 255
 SHRINKING_SPEED = 180 # More is faster
 
-TARGET_RADIUS = 400
+TARGET_RADIUS = 400.0
 HIT_RADIUS = 8
 
 HIT_DURATION = 85
@@ -62,24 +61,39 @@ class Player():
 
         
     
-    
+class State(Enum):
+    NEW = 1
+    BEFORE_SHRINK = 2
+    SHRINK = 3
+    AFTER =4
+    HIT = 5
+    MISS = 6
+
+
+
+
+WAIT_BEFORE_SHRINK = 255
+WAIT_AFTER = 200
+
+
 
 class Target():
     def __init__(self):
         self.x = 0
         self.y = 0
         self.counter = 0
+        self.hits = []
         self.new_target()
+
 
 
     def new_target(self):
         self.x = random.randint(int(SIZE[0]*0.1), int(SIZE[0]*0.9))
         self.y = random.randint(int(SIZE[1]*0.1), int(SIZE[1]*0.9))
-        self.target_new = True
+        self.state = State.NEW
+        self.timer = WAIT_BEFORE_SHRINK     
+
         self.radius = TARGET_RADIUS
-        self.wait_after_hit = False
-        self.wait_after_hit_duration = WAIT_AFTER_HIT_DURATION
-        self.target_new_time = WAIT_BEFORE_START_DURATION
         self.color = RED
 
 
@@ -89,50 +103,93 @@ class Target():
         
         current_radius = font.render("Radius: {:.0f}".format(self.radius), True, BLACK, WHITE)
         screen.blit(current_radius, [10, SIZE[1]-45])
+
+        returnvalue = 0
+
+        #print("{}".format(self.state), end='\r', flush=True)
         
-        if self.target_new: # new Target, wait some time
-            if self.target_new_time > 0:
-                self.target_new_time -= 1
-                self.color = (self.target_new_time, 0, 0) #change color from red to black
-            else:
-                self.target_new = False
-                self.color = BLACK
-        else:                
-            if self.wait_after_hit: # stop after hit / new target after time
-                if self.wait_after_hit_duration > 0:
-                    self.wait_after_hit_duration -= 1
+        if self.state == State.NEW:
+            self.state = State.BEFORE_SHRINK
+            self.timer = WAIT_BEFORE_SHRINK 
+        
+        elif self.state == State.BEFORE_SHRINK:
+            if self.timer > 0:
+                self.timer -= 1
+                if self.timer > 254:
+                    self.color = RED
                 else:
-                    self.counter += 1
-                    self.new_target()
+                    self.color = (self.timer, 0, 0)
             else:
-                if self.radius > 8: 
+                self.state = State.SHRINK
+                self.color = BLACK
+        
+        elif self.state == State.SHRINK:
+            if self.radius > 8: 
                     self.radius -= (self.radius / SHRINKING_SPEED)
-                else: # target too small
-                    self.counter += 1
-                    hits.append(Bullet_Hole(self.x, self.y, RED, HARD_PUNISH))
-                    self.new_target()
-                    return HARD_PUNISH
-        return 0
+            else:
+                self.state = State.AFTER
+                self.timer = WAIT_AFTER
+                returnvalue = HARD_PUNISH
+
+        elif self.state == State.HIT:
+            self.state = State.AFTER
+            self.timer = WAIT_AFTER
+
+        elif self.state == State.MISS: # ToDo: Continue after miss?
+            self.state = State.AFTER
+            self.timer = WAIT_AFTER
+
+        elif self.state == State.AFTER:
+            if self.timer > 0:
+                self.timer -= 1
+            else:
+                self.counter += 1
+                self.new_target()
+        
+        else:
+            print("else?")
+
+        return returnvalue
+
 
 
     def create_bullet_hole(self, x, y):
-        if self.target_new: # hit before start
+        
+        returnvalue = 0
+        
+        if self.state == State.NEW:
             hits.append(Bullet_Hole(x, y, RED, HARD_PUNISH))
-            return HARD_PUNISH
-        elif self.wait_after_hit: # nach einem Treffer
+            returnvalue = HARD_PUNISH
+        
+        elif self.state == State.BEFORE_SHRINK:
             hits.append(Bullet_Hole(x, y, RED, HARD_PUNISH))
-            return HARD_PUNISH
-        else:
-            # calculate if hit  
+            returnvalue = HARD_PUNISH
+        
+        elif self.state == State.SHRINK:
+            # calculate if hit or miss
             if math.sqrt((self.x - x)**2 + ( self.y - y)**2) <= self.radius:
                 hits.append(Bullet_Hole(x, y, GREEN, int(self.radius)))
-                self.wait_after_hit = True
-                return int(self.radius)
+                self.state = State.HIT
+                returnvalue = int(self.radius)
+
             else: # Miss
                 hits.append(Bullet_Hole(x, y, RED, SOFT_PUNISH))
-                return SOFT_PUNISH
-        return 0
-            
+                self.state = State.MISS
+                returnvalue = SOFT_PUNISH
+
+        elif self.state == State.HIT:
+            hits.append(Bullet_Hole(x, y, RED, HARD_PUNISH))
+            returnvalue = HARD_PUNISH
+
+        elif self.state == State.AFTER:
+            hits.append(Bullet_Hole(x, y, RED, HARD_PUNISH))
+            returnvalue = HARD_PUNISH
+
+        else:
+            print("create_bullet_hole - else?")
+
+        return returnvalue
+
 
 
 class Bullet_Hole():
