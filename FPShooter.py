@@ -19,8 +19,6 @@ RED = ( 255, 0, 0)
 
 SIZE = (500, 500)
 
-
-
 HARD_PUNISH = 500 #1000
 SOFT_PUNISH = 250
 
