@@ -10,7 +10,7 @@ from pygame.constants import (
 )
 import random
 import math
-from enum import Enum
+from enum import IntEnum
 from collections import namedtuple
 import itertools
 
@@ -33,29 +33,22 @@ SIZE = (500, 500)
 HARD_PUNISH = 500  # 1000
 SOFT_PUNISH = 250
 
-
-
 TARGET_RADIUS = 400.0
-TARGET_WAIT_BEFORE_SHRINK = 200
-TARGET_SHRINKING_TIME = 300
-TARGET_WAIT_AFTER = 200
-
+TARGET_WAIT_BEFORE_SHRINK = 2000
+TARGET_SHRINKING_TIME = 7000
+TARGET_WAIT_AFTER = 2000
 
 HOLE_RADIUS = 8
 HOLE_SHRINIKNG_TIME = 2000
 
-
-class TargetState(Enum):  # State for Target
+class TargetState(IntEnum):  # State for Target
     NEW = 1
     BEFORE_SHRINK = 2
     SHRINK = 3
     AFTER = 4
-    HIT = 5
-    MISS = 6
-    EXIT = 9
+    EXIT = 5
 
-
-class PlayerState(Enum):  # State for Target
+class PlayerState(IntEnum):  # State for Target
     NEW = 1
     RUNNING = 2
     NEXT_TARGET = 3
@@ -63,8 +56,7 @@ class PlayerState(Enum):  # State for Target
     WAIT_NEXT_ROUND = 5
     GAME_OVER = 6
 
-
-class AppState(Enum):
+class AppState(IntEnum):
     NEW = 1
     INSTRUCTIONS = 2
     GAME = 3
@@ -80,7 +72,6 @@ class Player():
         self.score = 0
         self.targets = {}
         self.state = PlayerState.RUNNING
-        self.holes = []
 
         for target_number in range(number_of_targets):
             for round_number in range(number_of_rounds):
@@ -92,20 +83,17 @@ class Player():
         self.target.push_enter()
 
     def update(self, dt):
-        if self.state == PlayerState.RUNNING:
+        if self.state == PlayerState.NEW:
+            pass
+
+
+        elif self.state == PlayerState.RUNNING:
             self.target.update(dt)
             target = self.target.properties()
 
-            for hole in self.holes:
-                hole.update(dt)
-
-
             self.score = sum([ x.score for x in self.targets.values()])
-            self.score += sum([ x.score for x in self.holes])
-
+            
             if target.state == TargetState.EXIT:
-                for hole in self.holes:
-                    hole.display = False
                 self.state = PlayerState.NEXT_TARGET
 
         elif self.state == PlayerState.NEXT_TARGET:
@@ -139,38 +127,9 @@ class Player():
     def draw(self, screen):
         self.target.draw(screen)
 
-        for target in self.holes:
-            target.draw(screen)
-
     def create_bullet_hole(self, xy):
-        x, y = xy
-
-        target  = self.target.properties()
-
-        if target.state == TargetState.NEW:
-            self.holes.append(Bullet_Hole(x, y, RED, HARD_PUNISH))
-
-        elif target.state == TargetState.BEFORE_SHRINK:
-            self.holes.append(Bullet_Hole(x, y, RED, HARD_PUNISH))
-
-        elif target.state == TargetState.SHRINK:
-            # calculate if hit or miss
-            if math.sqrt((target.x - x)**2 + (target.y - y)**2) <= target.radius:
-                self.holes.append(Bullet_Hole(x, y, GREEN, int(target.radius)))
-                self.target.hit()
-
-            else:  # Miss
-                self.holes.append(Bullet_Hole(x, y, RED, SOFT_PUNISH))
-                self.target.miss()
-
-        elif target.state == TargetState.HIT:
-            self.holes.append(Bullet_Hole(x, y, RED, HARD_PUNISH))
-
-        elif target.state == TargetState.AFTER:
-            self.holes.append(Bullet_Hole(x, y, RED, HARD_PUNISH))
-
-        else:
-            print("create_bullet_hole - else?")
+        self.target.new_hole(xy)
+        
 
 
 class Target():
@@ -182,6 +141,7 @@ class Target():
         self.new_target()
         self.wait_enter = True if WAIT_ENTER else False
         self.score = 0
+        self.holes = []
         
     def new_target(self):
         self.x = random.randint(int(SIZE[0]*0.1), int(SIZE[0]*0.9))
@@ -200,19 +160,50 @@ class Target():
         current_radius = font.render("Radius: {:.0f}".format(self.radius), True, BLACK, WHITE)
         screen.blit(current_radius, [10, SIZE[1]-45])
 
+        for hole in self.holes:
+            hole.draw(screen)
+    
+    def calculate_score(self):
+        self.score = sum([ x.score for x in self.holes])
+
+    def new_hole(self, xy):
+        x, y = xy
+
+        if self.state == TargetState.NEW:  # Hit while waiting for Enter (Return) Button
+            self.holes.append(Bullet_Hole(x, y, RED, HARD_PUNISH))
+
+        elif self.state == TargetState.BEFORE_SHRINK:  # Hit before Target is black
+            self.holes.append(Bullet_Hole(x, y, RED, HARD_PUNISH))
+
+        elif self.state == TargetState.SHRINK:  # Hit while shrinking
+            # calculate if hit or miss
+            if math.sqrt((self.x - x)**2 + (self.y - y)**2) <= self.radius:  # Hit
+                self.holes.append(Bullet_Hole(x, y, GREEN, int(self.radius)))
+            else:  # Miss
+                self.holes.append(Bullet_Hole(x, y, RED, SOFT_PUNISH))
+
+        elif self.state == TargetState.AFTER:
+            self.holes.append(Bullet_Hole(x, y, RED, HARD_PUNISH))
+
+        else:
+            print("create_bullet_hole - else?")
+        
+        if not self.state == TargetState.AFTER:
+            self.state = TargetState.AFTER
+            self.timer = TARGET_WAIT_AFTER
+
+        self.calculate_score()
+
+
     def properties(self):
         target = namedtuple("target", ["number","state","x", "y", "radius"])
         return target(self.number, self.state, self.x, self.y, self.radius)
 
-    def hit(self):
-        self.state = TargetState.HIT
-
-    def miss(self):
-        self.state = TargetState.MISS
-
     def update(self, dt):
         if self.state == TargetState.NEW:
-            if not self.wait_enter:
+            if self.wait_enter:  # Wait for ENTER (Return) to be pushed
+                pass
+            else:
                 self.wait_enter = True if WAIT_ENTER else False
                 self.state = TargetState.BEFORE_SHRINK
                 self.timer = TARGET_WAIT_BEFORE_SHRINK
@@ -232,21 +223,13 @@ class Target():
         elif self.state == TargetState.SHRINK:
             self.timer -= dt
             if self.timer > 0 - dt:
-                self.radius = ((self.timer / TARGET_SHRINKING_TIME)) * TARGET_RADIUS
+                self.radius = (self.timer / TARGET_SHRINKING_TIME) * TARGET_RADIUS
                 self.radius = 0 if self.radius < 0 else self.radius
                 #print("dt: {}, timer: {:1.2f}, radius: {:1.2f}, andere: {:1.4f}".format(dt,self.timer, self.radius, 1-(TARGET_SHRINKING_TIME - self.timer)/TARGET_SHRINKING_TIME))
             else:
                 self.state = TargetState.AFTER
                 self.timer = TARGET_WAIT_AFTER
-                self.score += HARD_PUNISH
-
-        elif self.state == TargetState.HIT:
-            self.state = TargetState.AFTER
-            self.timer = TARGET_WAIT_AFTER
-
-        elif self.state == TargetState.MISS:  # ToDo: Continue after miss?
-            self.state = TargetState.AFTER
-            self.timer = TARGET_WAIT_AFTER
+                self.holes.append(Bullet_Hole(self.x, self.y, RED, HARD_PUNISH))
 
         elif self.state == TargetState.AFTER:
             self.timer -= dt
@@ -254,12 +237,19 @@ class Target():
                 pass
             else:
                 self.state = TargetState.EXIT
+                for hole in self.holes:
+                    hole.display = False
 
         elif self.state == TargetState.EXIT:
             pass
 
         else:
             print("else?")
+
+        for hole in self.holes:
+            hole.update(dt)
+
+        self.calculate_score()
     
 
 class Bullet_Hole():
@@ -281,7 +271,7 @@ class Bullet_Hole():
                 self.radius = ((self.timer / HOLE_SHRINIKNG_TIME)) * HOLE_RADIUS
                 self.score_position -= 0.5
             else:
-                self.display = False
+                self.display = False 
 
     def draw(self, screen):
         if self.display:
@@ -342,7 +332,6 @@ class App():
         if self.state == AppState.GAME:
             self.player.create_bullet_hole(xy)
 
-
     def event_loop(self):
         for event in pygame.event.get():
             if event.type == QUIT:
@@ -353,10 +342,15 @@ class App():
                 elif event.key == K_RETURN:
                     if self.state == AppState.INSTRUCTIONS:
                         self.nextState()
-                    if self.state == AppState.GAME:
+
+                    elif self.state == AppState.GAME:
                         self.player.push_enter()
-                    if self.state == AppState.HIGHSCORE:
+
+                    elif self.state == AppState.HIGHSCORE:
                         self.nextState()
+                    
+                    else:
+                        pass
             elif event.type == MOUSEBUTTONUP:
                 pos = pygame.mouse.get_pos()
                 self.create_bullet_hole(pos)
@@ -429,7 +423,7 @@ class App():
                 #print([ x.score for x in self.players[player].targets.values()])
                 print(playername)
                 for (target_number, target_round), target in player.targets.items():
-                    print(f"Runde {target_number} Scheibe {target_round}, Punkte: {target.score + }")
+                    print(f"Runde {target_number} Scheibe {target_round}, Punkte: {target.score }")
             
 
         pygame.display.flip() #nötig?

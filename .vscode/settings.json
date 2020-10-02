@@ -8,5 +8,5 @@
     "python.testing.unittestEnabled": false,
     "python.testing.nosetestsEnabled": false,
     "python.testing.pytestEnabled": true,
-    "python.pythonPath": "c:\\Users\\green\\Documents\\FPShooter\\venv\\Scripts\\python.exe"
+    "python.dataScience.jupyterServerURI": "local"
 }
