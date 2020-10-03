@@ -460,7 +460,6 @@ def main():
 
     pygame.quit()
 
-
 """
     ########################## Instructions ##########################
     while running and display_instructions and False:
@@ -569,7 +568,4 @@ if __name__ == "__main__":
     font = pygame.font.Font(None, 36)
     font_big = pygame.font.Font(None, 50)
 
-    main()
-
-def game():
     main()
