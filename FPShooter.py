@@ -149,6 +149,8 @@ class App(GameInfo):
             elif event.type == MOUSEBUTTONUP:
                 pos = pygame.mouse.get_pos()
                 self.create_bullet_hole(pos)
+                hmsysteme.take_screenshot(self.screen)
+                print("screen")
 
         if hmsysteme.hit_detected():
             pos = hmsysteme.get_pos()
@@ -362,6 +364,7 @@ class Target():
         if self.print_screenshot:
             hmsysteme.take_screenshot(screen)
             self.print_screenshot = False
+            print("hi")
 
     
     def calculate_score(self):
