@@ -62,6 +62,10 @@ class GameInfo():
         self.hard_punish = 500
         self.soft_punish = 250
 
+        pygame.font.init()
+        self.font = pygame.font.Font(None, 36)
+        self.font_big = pygame.font.Font(None, 50)
+
 
 class App(GameInfo):
 
@@ -112,9 +116,9 @@ class App(GameInfo):
         self.all_scores = []
         for player in self.players:
             for (no_target, no_round), target in player.targets.items():
-                print(f"{player.name=}")
-                print(f"{no_round=}")
-                print(f"{no_target=}")
+                print("{}".format(player.name))
+                print("{}".format(no_round))
+                print("{}".format(no_target))
                 self.all_scores.append([player.name, no_round, no_target, target.score])
 
         print(self.all_scores)
@@ -197,18 +201,18 @@ class App(GameInfo):
         self.screen.fill(self.screen_color)
 
         if self.state == AppState.INSTRUCTIONS:
-            instruction_text = font.render("Instruction Text", True, WHITE)
+            instruction_text = self.gameinfo.font.render("Instruction Text", True, WHITE)
             self.screen.blit(instruction_text, [200, 200])
 
         elif self.state == AppState.GAME:
             self.player.draw(self.screen)
 
             name = self.player.name
-            name_text = font.render("{}".format(name), True, BLACK, WHITE)
+            name_text = self.gameinfo.font.render("{}".format(name), True, BLACK, WHITE)
             self.screen.blit(name_text, [40, 100])
 
             score =self.player.score
-            score_text = font.render("Punkte: {}".format(score), True, BLACK, WHITE)
+            score_text = self.gameinfo.font.render("Punkte: {}".format(score), True, BLACK, WHITE)
             self.screen.blit(score_text, [40, self.gameinfo.screen_size[1]-100])            
         
         elif self.state == AppState.HIGHSCORE:
@@ -217,7 +221,7 @@ class App(GameInfo):
                 #print([ x.score for x in self.players[player].targets.values()])
                 print(player.name)
                 for (target_number, target_round), target in player.targets.items():
-                    print(f"Runde {target_number} Scheibe {target_round}, Punkte: {target.score }")
+                    print("Runde {} Scheibe {}, Punkte: {}".format(target_number, target_round, target.score))
             
 
         pygame.display.flip() #nötig?
@@ -298,9 +302,9 @@ class Player():
         self.target.draw(screen)
         
         if self.target.state == TargetState.NEW:
-            player_1 = font_big.render(f"Player: {self.name}", True, BLACK)
-            player_2 = font.render("press Enter", True, BLACK)
-            player_3 = font.render("or shoot", True, BLACK)
+            player_1 = self.gameinfo.font_big.render("Player: {}".format(self.name), True, BLACK)
+            player_2 = self.gameinfo.font.render("press Enter", True, BLACK)
+            player_3 = self.gameinfo.font.render("or shoot", True, BLACK)
             x = self.gameinfo.screen_size[0]/ 2
             y = self.gameinfo.screen_size[1]/ 2
             screen.blit(player_1, ( int(x - player_1.get_width() /2), int(y - player_1.get_height() /2 )))
@@ -349,7 +353,7 @@ class Target():
     def draw(self, screen):
         pygame.draw.circle(screen, self.color, (self.x, self.y), int(self.radius), 0)
 
-        current_radius = font.render("Radius: {:.0f}".format(self.radius), True, BLACK, WHITE)
+        current_radius = self.gameinfo.font.render("Radius: {:.0f}".format(self.radius), True, BLACK, WHITE)
         screen.blit(current_radius, [10, self.gameinfo.screen_size[1]-45])
 
         for hole in self.holes:
@@ -372,21 +376,21 @@ class Target():
             #self.holes.append(Bullet_Hole(x, y, RED, self.gameinfo.hard_punish))
 
         elif self.state == TargetState.BEFORE_SHRINK:  # Hit before Target is black
-            self.holes.append(Bullet_Hole(x, y, RED, self.gameinfo.hard_punish))
+            self.holes.append(Bullet_Hole(self.gameinfo, x, y, RED, self.gameinfo.hard_punish))
             self.state = TargetState.AFTER
             self.timer = self.time_after
 
         elif self.state == TargetState.SHRINK:  # Hit while shrinking
             # calculate if hit or miss
             if math.sqrt((self.x - x)**2 + (self.y - y)**2) <= self.radius:  # Hit
-                self.holes.append(Bullet_Hole(x, y, GREEN, int(self.radius)))
+                self.holes.append(Bullet_Hole(self.gameinfo, x, y, GREEN, int(self.radius)))
             else:  # Miss
-                self.holes.append(Bullet_Hole(x, y, RED, self.gameinfo.soft_punish))
+                self.holes.append(Bullet_Hole(self.gameinfo, x, y, RED, self.gameinfo.soft_punish))
             self.state = TargetState.AFTER
             self.timer = self.time_after
 
         elif self.state == TargetState.AFTER:
-            self.holes.append(Bullet_Hole(x, y, RED, self.gameinfo.hard_punish))
+            self.holes.append(Bullet_Hole(self.gameinfo, x, y, RED, self.gameinfo.hard_punish))
 
         else:
             print("create_bullet_hole - else?")
@@ -431,7 +435,7 @@ class Target():
             else:
                 self.state = TargetState.AFTER
                 self.timer = self.time_after
-                bullet_hole = Bullet_Hole(x=self.x, y=self.y, color=RED, score=self.gameinfo.hard_punish)
+                bullet_hole = Bullet_Hole(self.gameinfo, x=self.x, y=self.y, color=RED, score=self.gameinfo.hard_punish)
                 self.holes.append(bullet_hole)
                 #self.holes.append(Bullet_Hole(self.x, self.y, RED, self.gameinfo.hard_punish))
 
@@ -463,14 +467,12 @@ class Target():
                 self.make_screenshot = False
                 self.timer_screen_shot = self.timer_screen_shot
                 self.print_screen_shot = True
-                
-
-
     
 
 class Bullet_Hole():
 
-    def __init__(self, x=0, y=0, color=RED, score=0):
+    def __init__(self, gameinfo, x=0, y=0, color=RED, score=0):
+        self.gameinfo = gameinfo
         self.original_radius = 25
         self.shrinking_time = 3000
 
@@ -498,17 +500,19 @@ class Bullet_Hole():
     def draw(self, screen):
         if self.display:
             pygame.draw.circle(screen, self.color,(self.x, self.y), int(self.radius), 0)
-            score_text = font.render("{}".format(self.score), True, self.color)
+            score_text = self.gameinfo.font.render("{}".format(self.score), True, self.color)
             screen.blit(score_text, [self.x + 10, self.y - 10 + int(self.score_position)])
 
 
 def main():
     pygame.init()
 
-    if not (playernames := hmsysteme.get_playernames()):
+    playernames = hmsysteme.get_playernames()
+    if not (playernames):
         playernames = ["a", "b"]
 
-    if not (screen_size := hmsysteme.get_size()):
+    screen_size = hmsysteme.get_size()
+    if not (screen_size):
         screen_size = [800, 800]
 
     app = App(screen_size, number_of_rounds, number_of_targets, playernames)
@@ -517,8 +521,5 @@ def main():
     pygame.quit()
 
 if __name__ == "__main__":
-    pygame.font.init()
 
-    font = pygame.font.Font(None, 36)
-    font_big = pygame.font.Font(None, 50)
     main()
