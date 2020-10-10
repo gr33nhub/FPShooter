@@ -16,7 +16,7 @@ import itertools
 
 ###############################################################################
 PlayerNames = ["Gonnie", "Python"]
-number_of_targets = 3  # Targets per player
+number_of_targets = 2  # Targets per player
 number_of_rounds = 1  # Number of Rounds
 WAIT_ENTER = True
 ###############################################################################
@@ -38,8 +38,7 @@ TARGET_WAIT_BEFORE_SHRINK = 2000
 TARGET_SHRINKING_TIME = 7000
 TARGET_WAIT_AFTER = 2000
 
-HOLE_RADIUS = 8
-HOLE_SHRINIKNG_TIME = 2000
+
 
 class TargetState(IntEnum):  # State for Target
     NEW = 1
@@ -65,7 +64,7 @@ class AppState(IntEnum):
 
 class App():
 
-    def __init__(self, screen_size, number_of_targets, number_of_rounds):
+    def __init__(self, screen_size,number_of_rounds, number_of_targets, wait_enter=True):
         self.state = AppState.NEW
         self.done = False
         self.clock = pygame.time.Clock()
@@ -77,7 +76,7 @@ class App():
         self.players = []
         self.player_index = 0
         for name in PlayerNames:
-            self.players.append(Player(name, number_of_targets, number_of_rounds))
+            self.players.append(Player(name, number_of_rounds, number_of_targets, wait_enter=wait_enter))
         self.player = self.players[self.player_index]
         self.nextState()
 
@@ -106,10 +105,13 @@ class App():
 
 
     def get_all_scores(self): #ToDo
-        self.all_scores = {}
+        self.all_scores = []
         for player in self.players:
-            a = player.get_allscores()
-            #self.all_scores[player.name] = player.targets
+            for (no_target, no_round), target in player.targets.items():
+                print(f"{player.name=}")
+                print(f"{no_round=}")
+                print(f"{no_target=}")
+                self.all_scores.append([player.name, no_round, no_target, target.score])
 
         print(self.all_scores)
 
@@ -222,21 +224,21 @@ class App():
 
 
 class Player():
-    def __init__(self, name, number_of_targets=0, number_of_rounds=0):
+    def __init__(self, name, number_of_rounds=0, number_of_targets=0, wait_enter=True):
         self.name = name
-        self.number_of_targets = number_of_targets
-        self.number_of_rounds = number_of_rounds
-        self.current_target = 0
-        self.current_round = 0
-        self.score = 0
-        self.targets = {}
         self.state = PlayerState.RUNNING
+        self.score = 0
+        self.number_of_rounds = number_of_rounds
+        self.number_of_targets = number_of_targets
+        self.current_round = 0
+        self.current_target = 0
+        self.targets = {} # No. Target / Round
 
-        for target_number in range(number_of_targets):
-            for round_number in range(number_of_rounds):
-                self.targets[target_number, round_number] = Target()
+        for round_number in range(number_of_rounds):
+            for target_number in range(number_of_targets):
+                self.targets[round_number, target_number] = Target(wait_enter=wait_enter)
 
-        self.target = self.targets[0, 0]
+        self.target = self.targets[self.current_round, self.current_target]
 
     def push_enter(self):
         self.target.push_enter()
@@ -257,7 +259,7 @@ class Player():
         elif self.state == PlayerState.NEXT_TARGET:
             self.current_target += 1
             if self.current_target < self.number_of_targets:  # next Target -> Running
-                self.target = self.targets[self.current_target, self.current_round]
+                self.target = self.targets[self.current_round, self.current_target]
                 self.state = PlayerState.RUNNING
             else:  # no more Targets -> Round Over
                 self.state = PlayerState.NEXT_ROUND
@@ -266,7 +268,7 @@ class Player():
             self.current_target = 0
             self.current_round += 1
             if self.current_round < self.number_of_rounds:  # next
-                self.target = self.targets[self.current_target, self.current_round]
+                self.target = self.targets[self.current_round, self.current_target]
                 self.state = PlayerState.WAIT_NEXT_ROUND
             else:
                 self.state = PlayerState.GAME_OVER
@@ -280,6 +282,7 @@ class Player():
         else:
             print("PlayerState Else?")
             print(self.state)
+            
         
 
     def draw(self, screen):
@@ -300,18 +303,14 @@ class Player():
 
 class Target():
 
-    def __init__(self):
-        self.number = next(itertools.count())
-        self.x = 0
-        self.y = 0
-        self.new_target()
-        self.wait_enter = True if WAIT_ENTER else False
-        self.score = 0
-        self.holes = []
-        
-    def new_target(self):
+    def __init__(self, wait_enter=True):
         self.x = random.randint(int(SIZE[0]*0.1), int(SIZE[0]*0.9))
         self.y = random.randint(int(SIZE[1]*0.1), int(SIZE[1]*0.9))
+        self.score = 0
+
+        self.wait_enter = wait_enter 
+        self.holes = []
+
         self.state = TargetState.NEW
         self.timer = TARGET_WAIT_BEFORE_SHRINK
         self.radius = TARGET_RADIUS
@@ -357,7 +356,6 @@ class Target():
         elif self.state == TargetState.AFTER:
             self.holes.append(Bullet_Hole(x, y, RED, HARD_PUNISH))
 
-
         else:
             print("create_bullet_hole - else?")
 
@@ -365,8 +363,8 @@ class Target():
 
 
     def properties(self):
-        target = namedtuple("target", ["number","state","x", "y", "radius"])
-        return target(self.number, self.state, self.x, self.y, self.radius)
+        target = namedtuple("target", ["state","x", "y", "radius"])
+        return target(self.state, self.x, self.y, self.radius)
 
     def update(self, dt):
         if self.state == TargetState.NEW:
@@ -398,7 +396,9 @@ class Target():
             else:
                 self.state = TargetState.AFTER
                 self.timer = TARGET_WAIT_AFTER
-                self.holes.append(Bullet_Hole(self.x, self.y, RED, HARD_PUNISH))
+                bullet_hole = Bullet_Hole(x=self.x, y=self.y, color=RED, score=HARD_PUNISH)
+                self.holes.append(bullet_hole)
+                #self.holes.append(Bullet_Hole(self.x, self.y, RED, HARD_PUNISH))
 
         elif self.state == TargetState.AFTER:
             self.timer -= dt
@@ -422,22 +422,28 @@ class Target():
     
 
 class Bullet_Hole():
-    def __init__(self, x, y, color, score):
-        self.x = x
-        self.y = y
-        self.radius = HOLE_RADIUS
-        self.timer = HOLE_SHRINIKNG_TIME
+
+    def __init__(self, x=0, y=0, color=RED, score=0):
+        self.original_radius = 25
+        self.shrinking_time = 3000
+
+        self.radius = self.original_radius
+        self.timer = self.shrinking_time
+
+        self.x, self.y = x, y
+
         self.color = color
         self.score = score
         self.score_position = 0
         self.display = True
+        print(self.__dict__)
 
     def update(self, dt):
         if self.display:
             if self.timer > 0:
                 self.timer -= dt
                 self.timer = 0 if self.timer < 0 else self.timer
-                self.radius = ((self.timer / HOLE_SHRINIKNG_TIME)) * HOLE_RADIUS
+                self.radius = ((self.timer / self.shrinking_time)) * self.original_radius
                 self.score_position -= 0.5
             else:
                 self.display = False 
@@ -455,7 +461,7 @@ class Bullet_Hole():
 def main():
     pygame.init()
 
-    app = App(SIZE, number_of_targets, number_of_rounds)
+    app = App(SIZE, number_of_rounds, number_of_targets)
     app.run()
 
     pygame.quit()
