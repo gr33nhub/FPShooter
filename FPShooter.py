@@ -219,7 +219,7 @@ class App(GameInfo):
                 score = self.gameinfo.font_big.render("Runde {} Scheibe {}, Punkte: {}".format(score[2], score[1], score[3]), True, BLACK)
                 
                 x = self.gameinfo.screen_size[0]
-                y = self.gameinfo.screen_size[1]
+                y = self.gameinfo.screen_size[1] 
 
                 self.screen.blit(name, ( int(x - name.get_width() /2), int((y- name.get_height() /2 ) - offset )))
                 self.screen.blit(score, ( int(x - score.get_width() /2), int((y- score.get_height() /2 ) - 60 - offset )))
