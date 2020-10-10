@@ -328,10 +328,10 @@ class Target():
         self.time_before_shrink = 2000
         self.time_shrinking = 7000
         self.time_after = 2000
-        self.time_screen_shot = 500
+        self.time_screenshot = 500
 
         self.timer = self.time_before_shrink
-        self.timer_screen_shot = self.time_screen_shot
+        self.timer_screenshot = self.time_screenshot
 
         self.wait_enter = self.gameinfo.wait_enter 
 
@@ -360,7 +360,7 @@ class Target():
             hole.draw(screen)
 
         if self.print_screenshot:
-            hmsysteme.take_screenshot()
+            hmsysteme.take_screenshot(screen)
             self.print_screenshot = False
 
     
@@ -460,13 +460,13 @@ class Target():
         self.calculate_score()
 
         if self.make_screenshot:
-            self.timer_screen_shot -= dt
-            if self.timer_screen_shot > 0:
+            self.timer_screenshot -= dt
+            if self.timer_screenshot > 0:
                 pass
             else:
                 self.make_screenshot = False
-                self.timer_screen_shot = self.timer_screen_shot
-                self.print_screen_shot = True
+                self.timer_screenshot = self.timer_screenshot
+                self.print_screenshot = True
     
 
 class Bullet_Hole():
