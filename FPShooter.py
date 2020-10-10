@@ -112,12 +112,10 @@ class App(GameInfo):
         self.all_scores = []
         for player in self.players:
             for (no_target, no_round), target in player.targets.items():
-                print("{}".format(player.name))
-                print("{}".format(no_round))
-                print("{}".format(no_target))
+                #print("{}".format(player.name))
+                #print("{}".format(no_round))
+                #print("{}".format(no_target))
                 self.all_scores.append([player.name, no_round, no_target, target.score])
-
-        print(self.all_scores)
 
     def create_bullet_hole(self, xy):
         if self.state == AppState.GAME:
@@ -145,12 +143,11 @@ class App(GameInfo):
             elif event.type == MOUSEBUTTONUP:
                 pos = pygame.mouse.get_pos()
                 self.create_bullet_hole(pos)
-                hmsysteme.take_screenshot(self.screen)
-                print("screen")
 
         if hmsysteme.hit_detected():
-            pos = hmsysteme.get_pos()
-            self.create_bullet_hole(pos)
+            (x,y) = hmsysteme.get_pos()
+            self.create_bullet_hole((int(x),int(y)))
+
 
     def update(self, dt):
 
@@ -214,15 +211,21 @@ class App(GameInfo):
             self.screen.blit(score_text, [40, self.gameinfo.screen_size[1]-100])            
         
         elif self.state == AppState.HIGHSCORE:
-            for player in self.players:
-                print(player)
-                #print([ x.score for x in self.players[player].targets.values()])
-                print(player.name)
-                for (target_number, target_round), target in player.targets.items():
-                    print("Runde {} Scheibe {}, Punkte: {}".format(target_number, target_round, target.score))
-            
+            offset = 0
 
-        #pygame.display.flip() #nötig?
+            for score in self.all_scores:
+
+                name = self.gameinfo.font_big.render("Player: {}".format(score[0]), True, BLACK)
+                score = self.gameinfo.font_big.render("Runde {} Scheibe {}, Punkte: {}".format(score[2], score[1], score[3]), True, BLACK)
+                
+                x = self.gameinfo.screen_size[0]
+                y = self.gameinfo.screen_size[1]
+
+                self.screen.blit(name, ( int(x - name.get_width() /2), int((y- name.get_height() /2 ) - offset )))
+                self.screen.blit(score, ( int(x - score.get_width() /2), int((y- score.get_height() /2 ) - 60 - offset )))
+
+                offset += 70
+
 
     def run(self):
         while not self.done:
