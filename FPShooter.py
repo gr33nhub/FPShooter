@@ -15,10 +15,6 @@ from collections import namedtuple
 import itertools
 import hmsysteme
 
-###############################################################################
-number_of_targets = 2  # Targets per player
-number_of_rounds = 1  # Number of Rounds
-###############################################################################
 
 BLACK = (0, 0, 0)
 GRAY = (100, 100, 100)
@@ -63,14 +59,14 @@ class GameInfo():
         self.soft_punish = 250
 
         pygame.font.init()
-        self.font = pygame.font.Font(None, 36)
-        self.font_big = pygame.font.Font(None, 50)
+        self.font = pygame.font.Font(None, 80)
+        self.font_big = pygame.font.Font(None, 100)
 
 
 class App(GameInfo):
 
-    def __init__(self, screen_size:list, number_of_rounds:int, number_of_targets:int, playernames:list, wait_enter=True):
-        self.gameinfo = GameInfo(screen_size, number_of_rounds, number_of_targets, playernames, wait_enter)
+    def __init__(self, gameinfo):
+        self.gameinfo = gameinfo
 
         self.state = AppState.NEW
         self.done = False
@@ -84,7 +80,7 @@ class App(GameInfo):
         self.players = []
         self.player_index = 0
         for name in self.gameinfo.playernames:
-            self.players.append(Player(name, self.gameinfo, wait_enter=wait_enter))
+            self.players.append(Player(name, self.gameinfo))
         self.player = self.players[self.player_index]
         self.nextState()
 
@@ -226,7 +222,7 @@ class App(GameInfo):
                     print("Runde {} Scheibe {}, Punkte: {}".format(target_number, target_round, target.score))
             
 
-        pygame.display.flip() #nötig?
+        #pygame.display.flip() #nötig?
 
     def run(self):
         while not self.done:
@@ -238,7 +234,7 @@ class App(GameInfo):
 
 
 class Player():
-    def __init__(self, name, gameinfo, wait_enter=True):
+    def __init__(self, name, gameinfo):
         self.gameinfo = gameinfo
         self.name = name
         self.state = PlayerState.RUNNING
@@ -249,9 +245,9 @@ class Player():
         self.current_target = 0
         self.targets = {} # No. Target / Round
 
-        for round_number in range(number_of_rounds):
-            for target_number in range(number_of_targets):
-                self.targets[round_number, target_number] = Target(gameinfo)
+        for round_number in range(self.number_of_rounds):
+            for target_number in range(self.number_of_targets):
+                self.targets[round_number, target_number] = Target(self.gameinfo)
 
         self.target = self.targets[self.current_round, self.current_target]
 
@@ -295,7 +291,7 @@ class Player():
             pass
 
         else:
-            print("PlayerState Else?")
+            print("PlayerState Else?!")
             print(self.state)
             
         
@@ -310,8 +306,8 @@ class Player():
             x = self.gameinfo.screen_size[0]/ 2
             y = self.gameinfo.screen_size[1]/ 2
             screen.blit(player_1, ( int(x - player_1.get_width() /2), int(y - player_1.get_height() /2 )))
-            screen.blit(player_2, ( int(x - player_2.get_width() /2), int((y- player_2.get_height() /2 ) + 35 )))
-            screen.blit(player_3, ( int(x - player_3.get_width() /2), int((y - player_3.get_height() /2) + 65 )))
+            screen.blit(player_2, ( int(x - player_2.get_width() /2), int((y- player_2.get_height() /2 ) + 75 )))
+            screen.blit(player_3, ( int(x - player_3.get_width() /2), int((y - player_3.get_height() /2) + 150 )))
 
     def create_bullet_hole(self, xy):
         self.target.new_hole(xy)
@@ -516,9 +512,15 @@ def main():
 
     screen_size = hmsysteme.get_size()
     if not (screen_size):
-        screen_size = [800, 800]
+        screen_size = [300, 300]
 
-    app = App(screen_size, number_of_rounds, number_of_targets, playernames)
+    number_of_targets = 2  # Targets per player
+    number_of_rounds = 1  # Number of Rounds
+    wait_enter = True     # Wait for enter button to be pushed
+   
+    gameinfo = GameInfo(screen_size, number_of_rounds, number_of_targets, playernames, wait_enter)
+
+    app = App(gameinfo)
     app.run()
 
     pygame.quit()
