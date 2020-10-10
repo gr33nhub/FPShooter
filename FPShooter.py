@@ -13,12 +13,11 @@ import math
 from enum import IntEnum
 from collections import namedtuple
 import itertools
+import hmsysteme
 
 ###############################################################################
-PlayerNames = ["Gonnie", "Python"]
 number_of_targets = 2  # Targets per player
 number_of_rounds = 1  # Number of Rounds
-WAIT_ENTER = True
 ###############################################################################
 
 BLACK = (0, 0, 0)
@@ -27,17 +26,6 @@ WHITE = (255, 255, 255)
 GREEN = (0, 255, 0)
 BLUE = (0, 191, 255)
 RED = (255, 0, 0)
-
-SIZE = (500, 500)
-
-HARD_PUNISH = 500  # 1000
-SOFT_PUNISH = 250
-
-TARGET_RADIUS = 400.0
-TARGET_WAIT_BEFORE_SHRINK = 2000
-TARGET_SHRINKING_TIME = 7000
-TARGET_WAIT_AFTER = 2000
-
 
 
 class TargetState(IntEnum):  # State for Target
@@ -62,21 +50,37 @@ class AppState(IntEnum):
     HIGHSCORE = 4
 
 
-class App():
 
-    def __init__(self, screen_size,number_of_rounds, number_of_targets, wait_enter=True):
+class GameInfo():
+    def __init__(self, screen_size:list, number_of_rounds:int, number_of_targets:int, playernames:list, wait_enter=True):
+        self.screen_size = screen_size
+        self.number_of_rounds = number_of_rounds
+        self.number_of_targets = number_of_targets
+        self.playernames = playernames
+        self.wait_enter = wait_enter
+
+        self.hard_punish = 500
+        self.soft_punish = 250
+
+
+class App(GameInfo):
+
+    def __init__(self, screen_size:list, number_of_rounds:int, number_of_targets:int, playernames:list, wait_enter=True):
+        self.gameinfo = GameInfo(screen_size, number_of_rounds, number_of_targets, playernames, wait_enter)
+
         self.state = AppState.NEW
         self.done = False
         self.clock = pygame.time.Clock()
         self.fps = 20
-        self.screen = pygame.display.set_mode((screen_size[0], screen_size[1]))
+
+        self.screen = pygame.display.set_mode(self.gameinfo.screen_size)
         self.screen_color = WHITE
         self.caption = ""
 
         self.players = []
         self.player_index = 0
-        for name in PlayerNames:
-            self.players.append(Player(name, number_of_rounds, number_of_targets, wait_enter=wait_enter))
+        for name in self.gameinfo.playernames:
+            self.players.append(Player(name, self.gameinfo, wait_enter=wait_enter))
         self.player = self.players[self.player_index]
         self.nextState()
 
@@ -142,6 +146,10 @@ class App():
                 pos = pygame.mouse.get_pos()
                 self.create_bullet_hole(pos)
 
+        if hmsysteme.hit_detected():
+            pos = hmsysteme.get_pos()
+            self.create_bullet_hole(pos)
+
     def update(self, dt):
 
         if self.state == AppState.INSTRUCTIONS:
@@ -190,18 +198,18 @@ class App():
 
         if self.state == AppState.INSTRUCTIONS:
             instruction_text = font.render("Instruction Text", True, WHITE)
-            self.screen.blit(instruction_text, [10, 10])
+            self.screen.blit(instruction_text, [200, 200])
 
         elif self.state == AppState.GAME:
             self.player.draw(self.screen)
 
             name = self.player.name
             name_text = font.render("{}".format(name), True, BLACK, WHITE)
-            self.screen.blit(name_text, [10, 10])
+            self.screen.blit(name_text, [40, 100])
 
             score =self.player.score
             score_text = font.render("Punkte: {}".format(score), True, BLACK, WHITE)
-            self.screen.blit(score_text, [10, SIZE[1]-20])            
+            self.screen.blit(score_text, [40, self.gameinfo.screen_size[1]-100])            
         
         elif self.state == AppState.HIGHSCORE:
             for player in self.players:
@@ -224,19 +232,20 @@ class App():
 
 
 class Player():
-    def __init__(self, name, number_of_rounds=0, number_of_targets=0, wait_enter=True):
+    def __init__(self, name, gameinfo, wait_enter=True):
+        self.gameinfo = gameinfo
         self.name = name
         self.state = PlayerState.RUNNING
         self.score = 0
-        self.number_of_rounds = number_of_rounds
-        self.number_of_targets = number_of_targets
+        self.number_of_rounds = self.gameinfo.number_of_rounds
+        self.number_of_targets = self.gameinfo.number_of_targets
         self.current_round = 0
         self.current_target = 0
         self.targets = {} # No. Target / Round
 
         for round_number in range(number_of_rounds):
             for target_number in range(number_of_targets):
-                self.targets[round_number, target_number] = Target(wait_enter=wait_enter)
+                self.targets[round_number, target_number] = Target(gameinfo)
 
         self.target = self.targets[self.current_round, self.current_target]
 
@@ -292,9 +301,11 @@ class Player():
             player_1 = font_big.render(f"Player: {self.name}", True, BLACK)
             player_2 = font.render("press Enter", True, BLACK)
             player_3 = font.render("or shoot", True, BLACK)
-            screen.blit(player_1, ( int(SIZE[0]/ 2 - player_1.get_width() /2), int(SIZE[1] / 2 - player_1.get_height() /2 )) )
-            screen.blit(player_2, ( int(SIZE[0]/ 2 - player_2.get_width() /2), int((SIZE[1] / 2 - player_2.get_height() /2) + 35 )) )
-            screen.blit(player_3, ( int(SIZE[0]/ 2 - player_3.get_width() /2), int((SIZE[1] / 2 - player_3.get_height() /2) + 65 )) )
+            x = self.gameinfo.screen_size[0]/ 2
+            y = self.gameinfo.screen_size[1]/ 2
+            screen.blit(player_1, ( int(x - player_1.get_width() /2), int(y - player_1.get_height() /2 )))
+            screen.blit(player_2, ( int(x - player_2.get_width() /2), int((y- player_2.get_height() /2 ) + 35 )))
+            screen.blit(player_3, ( int(x - player_3.get_width() /2), int((y - player_3.get_height() /2) + 65 )))
 
     def create_bullet_hole(self, xy):
         self.target.new_hole(xy)
@@ -303,18 +314,34 @@ class Player():
 
 class Target():
 
-    def __init__(self, wait_enter=True):
-        self.x = random.randint(int(SIZE[0]*0.1), int(SIZE[0]*0.9))
-        self.y = random.randint(int(SIZE[1]*0.1), int(SIZE[1]*0.9))
-        self.score = 0
+    def __init__(self, gameinfo):
 
-        self.wait_enter = wait_enter 
-        self.holes = []
+        self.gameinfo = gameinfo
+
+        self.radius_original = 400
+        self.radius = self.radius_original
+
+        self.time_before_shrink = 2000
+        self.time_shrinking = 7000
+        self.time_after = 2000
+        self.time_screen_shot = 500
+
+        self.timer = self.time_before_shrink
+        self.timer_screen_shot = self.time_screen_shot
+
+        self.wait_enter = self.gameinfo.wait_enter 
 
         self.state = TargetState.NEW
-        self.timer = TARGET_WAIT_BEFORE_SHRINK
-        self.radius = TARGET_RADIUS
         self.color = RED
+        self.make_screenshot = False # timer starts, gets updated in update()
+        self.print_screenshot = False  #makes the screenshot, needs screen, gets called by draw()
+
+        self.x = random.randint(int(gameinfo.screen_size[0]*0.2), int(gameinfo.screen_size[0]*0.8))
+        self.y = random.randint(int(gameinfo.screen_size[1]*0.2), int(gameinfo.screen_size[1]*0.8))
+        self.score = 0
+
+        self.holes = []
+
 
     def push_enter(self):
         self.wait_enter = False
@@ -323,10 +350,15 @@ class Target():
         pygame.draw.circle(screen, self.color, (self.x, self.y), int(self.radius), 0)
 
         current_radius = font.render("Radius: {:.0f}".format(self.radius), True, BLACK, WHITE)
-        screen.blit(current_radius, [10, SIZE[1]-45])
+        screen.blit(current_radius, [10, self.gameinfo.screen_size[1]-45])
 
         for hole in self.holes:
             hole.draw(screen)
+
+        if self.print_screenshot:
+            hmsysteme.take_screenshot()
+            self.print_screenshot = False
+
     
     def calculate_score(self):
         self.score = sum([ x.score for x in self.holes])
@@ -336,30 +368,32 @@ class Target():
 
         if self.state == TargetState.NEW:  # Hit while waiting for Enter (Return) Button
             self.state = TargetState.BEFORE_SHRINK
-            self.timer = TARGET_WAIT_BEFORE_SHRINK
-            #self.holes.append(Bullet_Hole(x, y, RED, HARD_PUNISH))
+            self.timer = self.time_before_shrink
+            #self.holes.append(Bullet_Hole(x, y, RED, self.gameinfo.hard_punish))
 
         elif self.state == TargetState.BEFORE_SHRINK:  # Hit before Target is black
-            self.holes.append(Bullet_Hole(x, y, RED, HARD_PUNISH))
+            self.holes.append(Bullet_Hole(x, y, RED, self.gameinfo.hard_punish))
             self.state = TargetState.AFTER
-            self.timer = TARGET_WAIT_AFTER
+            self.timer = self.time_after
 
         elif self.state == TargetState.SHRINK:  # Hit while shrinking
             # calculate if hit or miss
             if math.sqrt((self.x - x)**2 + (self.y - y)**2) <= self.radius:  # Hit
                 self.holes.append(Bullet_Hole(x, y, GREEN, int(self.radius)))
             else:  # Miss
-                self.holes.append(Bullet_Hole(x, y, RED, SOFT_PUNISH))
+                self.holes.append(Bullet_Hole(x, y, RED, self.gameinfo.soft_punish))
             self.state = TargetState.AFTER
-            self.timer = TARGET_WAIT_AFTER
+            self.timer = self.time_after
 
         elif self.state == TargetState.AFTER:
-            self.holes.append(Bullet_Hole(x, y, RED, HARD_PUNISH))
+            self.holes.append(Bullet_Hole(x, y, RED, self.gameinfo.hard_punish))
 
         else:
             print("create_bullet_hole - else?")
 
         self.calculate_score()
+        self.make_screenshot = True 
+        
 
 
     def properties(self):
@@ -367,13 +401,14 @@ class Target():
         return target(self.state, self.x, self.y, self.radius)
 
     def update(self, dt):
+
         if self.state == TargetState.NEW:
             if self.wait_enter:  # Wait for ENTER (Return) to be pushed
                 pass
             else:
-                self.wait_enter = True if WAIT_ENTER else False
+                self.wait_enter = True if self.gameinfo.wait_enter else False
                 self.state = TargetState.BEFORE_SHRINK
-                self.timer = TARGET_WAIT_BEFORE_SHRINK
+                self.timer = self.time_before_shrink
 
         elif self.state == TargetState.BEFORE_SHRINK:
             self.timer -= dt
@@ -385,20 +420,20 @@ class Target():
             else:
                 self.state = TargetState.SHRINK
                 self.color = BLACK
-                self.timer = TARGET_SHRINKING_TIME
+                self.timer = self.time_shrinking
 
         elif self.state == TargetState.SHRINK:
             self.timer -= dt
             if self.timer > 0 - dt:
-                self.radius = (self.timer / TARGET_SHRINKING_TIME) * TARGET_RADIUS
+                self.radius = (self.timer / self.time_shrinking) * self.radius_original
                 self.radius = 0 if self.radius < 0 else self.radius
                 #print("dt: {}, timer: {:1.2f}, radius: {:1.2f}, andere: {:1.4f}".format(dt,self.timer, self.radius, 1-(TARGET_SHRINKING_TIME - self.timer)/TARGET_SHRINKING_TIME))
             else:
                 self.state = TargetState.AFTER
-                self.timer = TARGET_WAIT_AFTER
-                bullet_hole = Bullet_Hole(x=self.x, y=self.y, color=RED, score=HARD_PUNISH)
+                self.timer = self.time_after
+                bullet_hole = Bullet_Hole(x=self.x, y=self.y, color=RED, score=self.gameinfo.hard_punish)
                 self.holes.append(bullet_hole)
-                #self.holes.append(Bullet_Hole(self.x, self.y, RED, HARD_PUNISH))
+                #self.holes.append(Bullet_Hole(self.x, self.y, RED, self.gameinfo.hard_punish))
 
         elif self.state == TargetState.AFTER:
             self.timer -= dt
@@ -419,6 +454,18 @@ class Target():
             hole.update(dt)
 
         self.calculate_score()
+
+        if self.make_screenshot:
+            self.timer_screen_shot -= dt
+            if self.timer_screen_shot > 0:
+                pass
+            else:
+                self.make_screenshot = False
+                self.timer_screen_shot = self.timer_screen_shot
+                self.print_screen_shot = True
+                
+
+
     
 
 class Bullet_Hole():
@@ -436,7 +483,7 @@ class Bullet_Hole():
         self.score = score
         self.score_position = 0
         self.display = True
-        print(self.__dict__)
+        #print(self.__dict__)
 
     def update(self, dt):
         if self.display:
@@ -455,123 +502,23 @@ class Bullet_Hole():
             screen.blit(score_text, [self.x + 10, self.y - 10 + int(self.score_position)])
 
 
-
-
-
 def main():
     pygame.init()
 
-    app = App(SIZE, number_of_rounds, number_of_targets)
+    if not (playernames := hmsysteme.get_playernames()):
+        playernames = ["a", "b"]
+
+    if not (screen_size := hmsysteme.get_size()):
+        screen_size = [800, 800]
+
+    app = App(screen_size, number_of_rounds, number_of_targets, playernames)
     app.run()
 
     pygame.quit()
-
-"""
-    ########################## Instructions ##########################
-    while running and display_instructions and False:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
-            if event.type == KEYDOWN:
-                if event.key == K_ESCAPE:
-                    running = False
-                if event.key == K_SPACE:
-                    display_instructions = False
-
-                    
-        instruction_text = font.render("Instructions", True, WHITE)
-        screen.blit(instruction_text, [10, 10])
-
-        clock.tick(20)
-        pygame.display.flip()
-
-    # ########################## GAME ##########################
-    while running and game:
-        screen.fill( WHITE )
-
-        if players[current_player].target.counter == 0:
-            next_player = font_big.render("Next Player: {}".format(players[current_player].name), True, BLACK)
-            next_player_space = font.render("press Enter", True, BLACK)
-            screen.blit(next_player, ( int(SIZE[0]/ 2 - next_player.get_width() /2), int(SIZE[1] / 2 - next_player.get_height() /2 )) )
-            screen.blit(next_player_space, ( int(SIZE[0]/ 2 - next_player_space.get_width() /2), int((SIZE[1] / 2 - next_player_space.get_height() /2) + 35 )) )
-
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    running = False
-                if event.type == KEYDOWN:
-                    if event.key == K_ESCAPE:
-                        running = False
-                    if event.key == K_RETURN:
-                        if players[current_player].target.counter == 0:
-                            players[current_player].target.counter = 1
-
-
-        elif players[current_player].target.counter < (NumberTargets + 1):
-            pygame.draw.line(screen, GRAY, (int(SIZE[0]/2), 0), (int(SIZE[0]/2), int(SIZE[1]))) # Vertical and horizontal lines
-            pygame.draw.line(screen, GRAY, (0, int(SIZE[1]/2)), (int(SIZE[0]), int(SIZE[1]/2)))
-            players[current_player].update()
-
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    running = False
-                if event.type == KEYDOWN:
-                    if event.key == K_ESCAPE:
-                        running = False
-                    if event.key == K_SPACE: # Random shot
-                        x = random.randint(SIZE[0]*0.2, SIZE[0]*0.8)
-                        y = random.randint(SIZE[0]*0.2, SIZE[0]*0.8)
-                        players[current_player].create_bullet_hole(x, y)
-                if event.type == pygame.MOUSEBUTTONUP:
-                    x, y = pygame.mouse.get_pos() # Mouse shot
-                    players[current_player].create_bullet_hole(x, y)
-
-        else:
-            current_player += 1
-            if current_player >= len(players):
-                game = False
-
-        # then draw all hits
-        for hit in hits:
-            if hit.duration > 0:
-                hit.update()
-            else:
-                hits.remove(hit)
-
-
-        clock.tick(100)
-        pygame.display.flip()
-
-
-    # ########################## HIGHSCORE ##########################
-    while running and highscore:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                highscore = False
-            if event.type == KEYDOWN:
-                if event.key == K_ESCAPE:
-                    highscore = False
-                    
-        screen.fill( GRAY )
-
-        offset = 0
-        
-        for player in players:
-            score_text = font.render("{}: {}".format(player.name, player.score), True, BLACK)
-            screen.blit(score_text, [10, 10 + offset])
-            offset += 25
-
-        clock.tick(20)
-        pygame.display.flip()
-        
-
-    pygame.quit()
-
-"""
 
 if __name__ == "__main__":
     pygame.font.init()
 
     font = pygame.font.Font(None, 36)
     font_big = pygame.font.Font(None, 50)
-
     main()
