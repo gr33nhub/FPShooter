@@ -113,11 +113,15 @@ class App():
     def get_all_scores(self): #ToDo
         self.all_scores = []
         for player in self.players:
-            for (no_target, no_round), target in player.targets.items():
-                #print("{}".format(player.name))
-                #print("{}".format(no_round))
-                #print("{}".format(no_target))
+            print("Player: {}".format(player.name))
+
+            for (no_round, no_target), target in player.targets.items():
+                print("Runde {} Scheibe {}, Punkte: {}".format(no_round + 1 , no_target+1, target.score))
                 self.all_scores.append([player.name, no_round, no_target, target.score])
+            
+            print("Summe: {}".format(sum([target.score for a, target in player.targets.items()])))
+            print("")
+
 
     def create_bullet_hole(self, xy):
         if self.state == AppState.GAME:
@@ -214,9 +218,7 @@ class App():
         
         elif self.state == AppState.HIGHSCORE:
             
-
             x = self.gameinfo.screen_size[0]/2
-            y = self.gameinfo.screen_size[1] 
 
             offset = 0
             for player in self.players:
@@ -225,13 +227,17 @@ class App():
                 
                 offset += 50
 
-                for (no_target, no_round), target in player.targets.items():
+                for (no_round, no_target), target in player.targets.items():
 
-                    score = self.gameinfo.font.render("Runde {} Scheibe {}, Punkte: {}".format(no_round, no_target, target.score), True, BLACK)
+                    score = self.gameinfo.font.render("Runde {} Scheibe {}, Punkte: {}".format(no_round + 1 , no_target+1, target.score), True, BLACK)
                     self.gameinfo.screen.blit(score, ( int(x - score.get_width() /2), int((score.get_height()) + offset )))
 
                     offset += 50
-                offset += 50
+
+                summ = self.gameinfo.font.render("Summe: {}".format(sum([target.score for a, target in player.targets.items()])), True, BLACK)
+                self.gameinfo.screen.blit(summ, ( int(x - summ.get_width() /2), int((summ.get_height()) + offset )))
+
+                offset += 80
 
 
     def run(self):
@@ -438,7 +444,7 @@ class Target():
             else:
                 self.state = TargetState.AFTER
                 self.timer = self.time_after
-                bullet_hole = Bullet_Hole(self.gameinfo, x=self.x, y=self.y, color=RED, score=self.gameinfo.hard_punish)
+                bullet_hole = Bullet_Hole(self.gameinfo, xy=(self.x, self.y), color=RED, score=self.gameinfo.hard_punish)
                 self.holes.append(bullet_hole)
                 #self.holes.append(Bullet_Hole(self.x, self.y, RED, self.gameinfo.hard_punish))
 
