@@ -1,0 +1,6 @@
+hmsysteme==0.91
+Pillow==9.3.0
+pygame==2.1.2
+pyserial==3.5
+pytest==7.2.0
+remi==2022.7.27
